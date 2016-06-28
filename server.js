@@ -23,6 +23,7 @@ var express = require('express'), // require express
 // We can configure express to serve static files
 // We could use ejs,jade or some other templating framework for our views. Or just send html file
 
+// Built in MIDDLEWARE
 app.use(express.static('client'));
 
 // HTTP request logger middleware for node.js.
@@ -37,6 +38,11 @@ app.use(bodyParser.urlencoded({extended:true}));
 // exposes it on req.body as something easier to interface with
 app.use(bodyParser.json());
 
+// We could setup some custom middleware depending on the path
+// app.all('/users', function(req,res,next){
+// console.log(req)
+// next()
+// })
 
 // HTTP Verb GET,POST,PUT,DELETE  (CRUD Create,Read,Update,Destroy)
 
@@ -46,10 +52,34 @@ app.use(bodyParser.json());
 var users = [
     {name:"Sally Rally",intro: "hello my name is sally", age: 24, gender:"female"}
 ];
+
 var id = 0;
 
-app.get('/users', function(req, res){
+// here we are checking the param for an id and if there is one then we will find that user by id and then set the user on req.user
+app.param('id', function(req, res, next, id) {
+    var user = _.find(users, {id: id});
+
+    if (user) {
+        req.user = user;
+        next();
+    } else {
+        res.send();
+    }
+});
+// custom middleware
+var updateId = function(req, res, next) {
+    if (!req.body.id) {
+        id++;
+        req.body.id = id + '';
+    }
+    next();
+};
+
+
+app.get('/users', function(req, res,next){
     res.json(users);
+    //
+    //next(new Error('something went wrong') )
 });
 
 app.get('/users/:id', function(req, res){
@@ -57,13 +87,10 @@ app.get('/users/:id', function(req, res){
     res.json(user || {});
 });
 
-app.post('/users', function(req, res) {
+// we could pass in middleware on our routes also or an array of middleware
+app.post('/users',updateId, function(req, res) {
     var user = req.body;
-    id++; // lets refactor this to use some middleware
-    user.id = id + '';
-
     users.push(user);
-
     res.json(user);
 });
 
@@ -81,6 +108,12 @@ app.put('/users/:id', function(req, res) {
         var updateduser = _.assign(users[user], update);
         res.json(updateduser);
     }
+});
+
+// If we pass err as the first argument then express will know that we are using error handling middleware
+app.use(function(err,req,res,next) {
+    console.log("here is the error");
+    console.log(err);
 });
 
 app.listen(3000);
